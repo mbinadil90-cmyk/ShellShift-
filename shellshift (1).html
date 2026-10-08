@@ -1,0 +1,369 @@
+<title>Shellshift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one centred column. Header, stats strip, square board, status line.
+     Single deliberate look: deep tidepool water with sea-glass pieces. */
+  :root {
+    --sea-900: #0a202b;
+    --sea-800: #11303f;
+    --sea-700: #1a4254;
+    --foam: #e9f3ee;
+    --muted: #8db0b8;
+    --sun: #ffcf6b;
+    --p0: #ff7a66;
+    --p1: #f7b843;
+    --p2: #35c9b8;
+    --p3: #9a88ff;
+    --p4: #5fb2e8;
+    --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --gap: 5px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--sea-900);
+    color: var(--foam);
+    font-family: var(--display);
+    font-size: 16px;
+    padding-inline: 16px;
+    padding-block: 20px 32px;
+    display: flex;
+    justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  header { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1; text-wrap: balance; }
+  .tag { margin: 6px 0 0; color: var(--muted); font-weight: 500; font-size: 0.9rem; }
+  .btns { display: flex; gap: 8px; }
+  button.ctl {
+    font: inherit; font-weight: 500; font-size: 0.85rem;
+    color: var(--foam); background: var(--sea-800);
+    border: 1px solid var(--sea-700); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+  }
+  button.ctl:hover { background: var(--sea-700); }
+  button.ctl:focus-visible, .cell:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .stat { background: var(--sea-800); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .stat span { display: block; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .stat b { display: block; margin-top: 2px; font-family: var(--mono); font-weight: 500; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+  .goal { display: flex; flex-direction: column; gap: 6px; }
+  .goal-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; background: var(--sea-800); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--sun); border-radius: 99px; transition: width .35s ease; }
+
+  .board-wrap { position: relative; }
+  #board {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: var(--gap);
+    padding: var(--gap); background: var(--sea-800); border-radius: 14px;
+    aspect-ratio: 1; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .cell {
+    position: relative; border-radius: 9px; background: var(--sea-700);
+    display: grid; place-items: center; cursor: pointer; min-width: 0; min-height: 0;
+    animation: slide var(--dur, 0s) ease-out both;
+  }
+  .cell svg { width: 84%; height: 84%; display: block; pointer-events: none; fill: currentColor; stroke: rgba(255,255,255,.4); stroke-width: 1.6; stroke-linejoin: round; }
+  .t0 { color: var(--p0); } .t1 { color: var(--p1); } .t2 { color: var(--p2); } .t3 { color: var(--p3); } .t4 { color: var(--p4); }
+  .cell.sel { outline: 3px solid var(--foam); outline-offset: -3px; background: #25566b; }
+  .cell.hint { animation: nudge .6s ease-in-out 3; }
+  .cell.pop svg { animation: pop .24s ease-in forwards; }
+  @keyframes slide {
+    from { transform: translate(calc(var(--fx, 0) * (100% + var(--gap))), calc(var(--fy, 0) * (100% + var(--gap)))); }
+    to { transform: translate(0, 0); }
+  }
+  @keyframes pop { to { transform: scale(0); opacity: 0; } }
+  @keyframes nudge { 50% { transform: scale(1.12); background: #25566b; } }
+
+  .status { min-height: 1.4em; margin: 0; text-align: center; color: var(--muted); font-size: 0.92rem; }
+  .status.hot { color: var(--sun); font-weight: 800; }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: 14px; background: rgba(10, 32, 43, .9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 20px;
+  }
+  .overlay h2 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .overlay p { margin: 0; color: var(--muted); }
+  .overlay .big { font-family: var(--mono); font-size: 2.4rem; color: var(--sun); font-variant-numeric: tabular-nums; }
+  .overlay button.ctl { background: var(--sun); color: var(--sea-900); border-color: var(--sun); font-weight: 800; padding: 10px 20px; margin-top: 6px; }
+
+  .legend { margin: 0; color: var(--muted); font-size: 0.82rem; line-height: 1.5; max-width: 62ch; }
+  @media (prefers-reduced-motion: reduce) {
+    .cell, .cell.pop svg, .cell.hint { animation: none !important; }
+    .cell.pop svg { opacity: 0; }
+    .bar i { transition: none; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Shellshift</h1>
+      <p class="tag">Swap two neighbours. Line up three or more.</p>
+    </div>
+    <div class="btns">
+      <button class="ctl" id="hintBtn" type="button">Hint</button>
+      <button class="ctl" id="newBtn" type="button">New game</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span>Score</span><b id="score">0</b></div>
+    <div class="stat"><span>Moves</span><b id="moves">25</b></div>
+    <div class="stat"><span>Best</span><b id="best">0</b></div>
+  </div>
+
+  <div class="goal">
+    <div class="goal-row"><span>Clear the tide</span><span id="goalText">0 / 1,500</span></div>
+    <div class="bar"><i id="goalBar"></i></div>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board" role="grid" aria-label="Game board"></div>
+    <div class="overlay" id="overlay" hidden></div>
+  </div>
+
+  <p class="status" id="status" aria-live="polite">Tap a piece, then tap a neighbour. You can also swipe.</p>
+  <p class="legend">Reach 1,500 points in 25 moves. Each chain reaction multiplies the points. Pieces differ by shape as well as colour.</p>
+</div>
+
+<script>
+(() => {
+  const N = 8, T = 5, MOVES = 25, GOAL = 1500;
+  const SHAPES = [
+    '<circle cx="20" cy="20" r="13"/>',
+    '<path d="M20 5 35 20 20 35 5 20z"/>',
+    '<path d="M20 6 36 33H4z"/>',
+    '<rect x="8" y="8" width="24" height="24" rx="5"/>',
+    '<path d="M20 5 33 12.5v15L20 35 7 27.5v-15z"/>'
+  ];
+  const NAMES = ['coral circle', 'amber diamond', 'teal triangle', 'violet square', 'blue hexagon'];
+
+  const $ = id => document.getElementById(id);
+  const board = $('board'), statusEl = $('status'), overlay = $('overlay');
+  let grid = [], score = 0, moves = MOVES, busy = false, over = false, sel = null, best = 0;
+
+  try { best = parseInt(localStorage.getItem('shellshift-best') || '0', 10) || 0; } catch (e) { best = 0; }
+
+  const rnd = n => Math.floor(Math.random() * n);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const fmt = n => n.toLocaleString('en-US');
+
+  function findMatches(g) {
+    g = g || grid;
+    const m = new Set();
+    for (let r = 0; r < N; r++) {
+      let run = 1;
+      for (let c = 1; c <= N; c++) {
+        if (c < N && g[r][c] !== null && g[r][c] === g[r][c - 1]) run++;
+        else { if (run >= 3) for (let k = 0; k < run; k++) m.add(r * N + c - 1 - k); run = 1; }
+      }
+    }
+    for (let c = 0; c < N; c++) {
+      let run = 1;
+      for (let r = 1; r <= N; r++) {
+        if (r < N && g[r][c] !== null && g[r][c] === g[r - 1][c]) run++;
+        else { if (run >= 3) for (let k = 0; k < run; k++) m.add((r - 1 - k) * N + c); run = 1; }
+      }
+    }
+    return m;
+  }
+
+  function swapCells(a, b) {
+    const ar = Math.floor(a / N), ac = a % N, br = Math.floor(b / N), bc = b % N;
+    const t = grid[ar][ac]; grid[ar][ac] = grid[br][bc]; grid[br][bc] = t;
+  }
+
+  function findMove() {
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const i = r * N + c;
+      const nb = [];
+      if (c < N - 1) nb.push(i + 1);
+      if (r < N - 1) nb.push(i + N);
+      for (const j of nb) {
+        swapCells(i, j);
+        const ok = findMatches().size > 0;
+        swapCells(i, j);
+        if (ok) return [i, j];
+      }
+    }
+    return null;
+  }
+
+  function fillRandom() {
+    grid = Array.from({ length: N }, () => Array.from({ length: N }, () => rnd(T)));
+    let m;
+    while ((m = findMatches()).size) m.forEach(i => { grid[Math.floor(i / N)][i % N] = rnd(T); });
+  }
+
+  function freshBoard() {
+    do { fillRandom(); } while (!findMove());
+  }
+
+  // anim: Map index -> [fx, fy, seconds]; piece starts offset by (fx, fy) cells and slides home.
+  function render(anim) {
+    let html = '';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const i = r * N + c, t = grid[r][c];
+      let style = '';
+      if (anim && anim.has(i)) { const a = anim.get(i); style = ` style="--fx:${a[0]};--fy:${a[1]};--dur:${a[2]}s"`; }
+      html += `<div class="cell t${t}${sel === i ? ' sel' : ''}" role="gridcell" data-i="${i}" aria-label="${NAMES[t]}"${style}>` +
+        `<svg viewBox="0 0 40 40" aria-hidden="true">${SHAPES[t]}</svg></div>`;
+    }
+    board.innerHTML = html;
+  }
+
+  function hud() {
+    $('score').textContent = fmt(score);
+    $('moves').textContent = moves;
+    $('best').textContent = fmt(best);
+    $('goalText').textContent = fmt(Math.min(score, 99999)) + ' / ' + fmt(GOAL);
+    $('goalBar').style.width = Math.min(100, score / GOAL * 100) + '%';
+  }
+
+  function say(msg, hot) { statusEl.textContent = msg; statusEl.classList.toggle('hot', !!hot); }
+
+  function setSel(i) {
+    sel = i;
+    [...board.children].forEach((el, k) => el.classList.toggle('sel', k === i));
+  }
+
+  function gravity() {
+    const anim = new Map();
+    for (let c = 0; c < N; c++) {
+      const stack = [];
+      for (let r = N - 1; r >= 0; r--) if (grid[r][c] !== null) stack.push({ t: grid[r][c], from: r });
+      const empties = N - stack.length;
+      for (let r = N - 1; r >= 0; r--) {
+        const k = N - 1 - r;
+        if (k < stack.length) {
+          grid[r][c] = stack[k].t;
+          const d = r - stack[k].from;
+          if (d > 0) anim.set(r * N + c, [0, -d, 0.12 + d * 0.07]);
+        } else {
+          grid[r][c] = rnd(T);
+          anim.set(r * N + c, [0, -empties, 0.12 + empties * 0.07]);
+        }
+      }
+    }
+    return anim;
+  }
+
+  async function attempt(a, b) {
+    busy = true; sel = null;
+    const ar = Math.floor(a / N), ac = a % N, br = Math.floor(b / N), bc = b % N;
+    swapCells(a, b);
+    render(new Map([[a, [bc - ac, br - ar, 0.15]], [b, [ac - bc, ar - br, 0.15]]]));
+    await wait(170);
+    let m = findMatches();
+    if (!m.size) {
+      swapCells(a, b);
+      render(new Map([[a, [bc - ac, br - ar, 0.15]], [b, [ac - bc, ar - br, 0.15]]]));
+      say('No match there. Try another swap.');
+      await wait(170);
+      busy = false;
+      return;
+    }
+    moves--;
+    let combo = 1;
+    while (m.size) {
+      m.forEach(i => { const el = board.children[i]; if (el) el.classList.add('pop'); });
+      await wait(250);
+      score += m.size * 10 * combo + Math.max(0, m.size - 3) * 15;
+      m.forEach(i => { grid[Math.floor(i / N)][i % N] = null; });
+      if (combo > 1) say('Chain x' + combo + '!', true); else say(m.size + ' cleared');
+      hud();
+      const anim = gravity();
+      render(anim);
+      await wait(380);
+      m = findMatches();
+      combo++;
+    }
+    if (!findMove()) {
+      do { fillRandom(); } while (!findMove());
+      render(new Map([...Array(N * N).keys()].map(i => [i, [0, -1, 0.25]])));
+      say('No moves left. The board was reshuffled.');
+      await wait(280);
+    }
+    busy = false;
+    if (moves <= 0) finish();
+  }
+
+  function finish() {
+    over = true;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('shellshift-best', String(best)); } catch (e) {}
+    }
+    hud();
+    const won = score >= GOAL;
+    overlay.innerHTML =
+      `<h2>${won ? 'Tide cleared' : 'Tide went out'}</h2>` +
+      `<div class="big">${fmt(score)}</div>` +
+      `<p>${won ? 'You reached the goal.' : 'You needed ' + fmt(GOAL - score) + ' more points.'} Best: ${fmt(best)}</p>` +
+      `<button class="ctl" id="againBtn" type="button">Play again</button>`;
+    overlay.hidden = false;
+    $('againBtn').addEventListener('click', start);
+  }
+
+  function start() {
+    score = 0; moves = MOVES; busy = false; over = false; sel = null;
+    overlay.hidden = true;
+    freshBoard();
+    render();
+    hud();
+    say('Tap a piece, then tap a neighbour. You can also swipe.');
+  }
+
+  function adjacent(a, b) {
+    const ar = Math.floor(a / N), ac = a % N, br = Math.floor(b / N), bc = b % N;
+    return Math.abs(ar - br) + Math.abs(ac - bc) === 1;
+  }
+
+  function tap(i) {
+    if (sel === null) setSel(i);
+    else if (sel === i) setSel(null);
+    else if (adjacent(sel, i)) attempt(sel, i);
+    else setSel(i);
+  }
+
+  let down = null;
+  board.addEventListener('pointerdown', e => {
+    if (busy || over) return;
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    down = { i: +cell.dataset.i, x: e.clientX, y: e.clientY };
+  });
+  board.addEventListener('pointerup', e => {
+    if (!down) return;
+    const d = down; down = null;
+    if (busy || over) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    const size = board.getBoundingClientRect().width / N;
+    if (Math.hypot(dx, dy) > size * 0.4) {
+      const r = Math.floor(d.i / N), c = d.i % N;
+      let nr = r, nc = c;
+      if (Math.abs(dx) > Math.abs(dy)) nc += dx > 0 ? 1 : -1; else nr += dy > 0 ? 1 : -1;
+      if (nr >= 0 && nr < N && nc >= 0 && nc < N) attempt(d.i, nr * N + nc);
+    } else tap(d.i);
+  });
+  board.addEventListener('pointercancel', () => { down = null; });
+
+  $('newBtn').addEventListener('click', start);
+  $('hintBtn').addEventListener('click', () => {
+    if (busy || over) return;
+    const mv = findMove();
+    if (!mv) return;
+    setSel(null);
+    mv.forEach(i => board.children[i].classList.add('hint'));
+    say('Try swapping the two pieces that are pulsing.');
+  });
+
+  start();
+})();
+</script>
