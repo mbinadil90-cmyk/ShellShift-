@@ -1,10 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shellshift</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* Layout: one centred column. Header, stats strip, square board, status line.
-     Single deliberate look: deep tidepool water with sea-glass pieces. */
   :root {
     --sea-900: #0a202b;
     --sea-800: #11303f;
@@ -23,6 +26,8 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; }
   html, body { min-height: 100%; }
   body {
     background: var(--sea-900);
@@ -99,7 +104,8 @@
     .bar i { transition: none; }
   }
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <header>
     <div>
@@ -205,7 +211,6 @@
     do { fillRandom(); } while (!findMove());
   }
 
-  // anim: Map index -> [fx, fy, seconds]; piece starts offset by (fx, fy) cells and slides home.
   function render(anim) {
     let html = '';
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
@@ -367,3 +372,5 @@
   start();
 })();
 </script>
+</body>
+</html>
